@@ -1,0 +1,7 @@
+[rpm-orion-tsm-v8r1]
+gpgcheck=0
+enabled=1
+name=$releasever-$basearch on rpm.in.orion.education.fr - tsm-v8r1
+baseurl=http://rpm.in.orion.education.fr/mrepo/RHEL6-$basearch/RPMS.tsm-v8r1
+       http://rpm2.in.orion.education.fr/mrepo/RHEL6-$basearch/RPMS.tsm-v8r1
+

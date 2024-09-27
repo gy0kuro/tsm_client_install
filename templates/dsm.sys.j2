@@ -1,0 +1,18 @@
+SErvername  {{ tsm_server_name }}
+   COMMMethod            {{ comm_method }}
+   TCPPort               {{ tcp_port }}
+   TCPServeraddress      {{ tsm_server_address }}
+   TCPCLIENTAddress      {{ ansible_fqdn }}
+   nodename              {{ ansible_hostname }}
+   ManagedServices       schedule webclient
+   errorlogname          /var/log/tsm/dsmerror.log
+   schedlogname          /var/log/tsm/dsmsched.log
+   errorlogretention     7 D
+   schedlogretention     7 D
+   webports              1881 1800
+   passwordaccess        generate
+
+EXCLUDE /.../*
+INCLUDE /etc/.../* YOUR_MC1 
+INCLUDE /var/www/.../* YOUR_MC2
+INCLUDE /var/log/.../* YOUR_MC3 

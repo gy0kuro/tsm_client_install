@@ -1,0 +1,191 @@
+#!/usr/bin/env ansible-playbook
+---
+- hosts: oneshot
+#  strategy: free
+  gather_facts: True
+  vars:
+    # zonein ou zoneac
+    zone: "{{ ZONE|default('in') }}"
+
+  tasks:
+  - include_vars: vars/global.yml
+  - include_vars: vars/tsmclient.yml
+
+  - include_vars: vars_reposin.yml
+    when: zone == "in"
+
+  - include_vars: vars_reposac.yml
+    when: zone == "ac"
+
+  - include_vars: vars_reposcuripub.yml
+    when: zone == "curipub"
+
+  - include_vars: vars_reposcuripub.yml
+    when: zone == "curipriv"
+
+
+# Consider using file module with state=directory rather than running mkdir
+  - name: Creer paths TSM
+    file:
+      path: /tsm
+      state: directory
+      mode: 0600
+
+# Consider using file module with state=touch rather than running touch
+  - name: Creer fichier presched
+    file:
+      path: /tsm/presched.sh
+      state: touch
+      mode: 0755
+
+  - name: Creer fichier postsched
+    file:
+      path: /tsm/postsched.sh
+      state: touch
+      mode: 0755
+
+# si machine en DMZ : tunnel et http_proxy en localhost (plus fichier apt localhost:3128)
+  - name: Ajouter clef depot
+    apt_key:
+      url: "http://{{ repos }}/keyFile"
+      state: present
+    environment:
+      http_proxy: "http://{{ proxy }}:3128/"
+    when:
+      - ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+
+  - name: Ajouter repo TSM apt local
+    apt_repository:
+      repo: "deb http://{{ repos }}/ /"
+      state: present
+      #validate_certs: yes
+    when:
+      - ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+
+  - name: Update du cache apt
+    apt:
+      update_cache: yes
+    when:
+      - ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+
+  - name: Ajouter repository TSM Orion
+    yum_repository:
+      name: orion-tsm
+      description: Orion repos TSM
+      baseurl: http://rpm2.in.orion.education.fr/mrepo/RHEL7-$basearch/RPMS.tsm-v8r1
+      enabled: yes
+      gpgcheck: no
+    when:
+      - ansible_distribution == "RedHat"
+
+# [WARNING]: Consider using yum module rather than running yum
+  - name: Update de Yum
+    command: "yum update -y"
+    when:
+      - ansible_distribution == "RedHat"
+
+  - name: Installer libselinux-python
+    package:
+      name: libselinux-python
+      state: latest
+    when:
+      - ansible_distribution == "RedHat"
+
+  - name: Installer gskssl64
+    package:
+      name: gskssl64
+      state: latest
+
+  - name: Installer gskcrypt64
+    package: 
+      name: gskcrypt64
+      state: latest
+
+  - name: Installer api64 DebUbuntu
+    package: 
+      name: tivsm-api64
+      state: latest
+    when:
+      - ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+
+  - name: Installer ba DebUbuntu
+    package: 
+      name: tivsm-ba
+      state: latest
+    when:
+      - ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+
+  - name: Installer api64
+    package: 
+      name: TIVsm-API64
+      state: latest
+    when:
+      - ansible_distribution == "RedHat"
+
+  - name: Installer ba
+    package: 
+      name: TIVsm-BA
+      state: latest
+    when:
+      - ansible_distribution == "RedHat"
+
+  - template:
+      src: "{{ path_templates }}/dsm.sys.j2"
+      dest: "{{ dsm_sys_path }}"
+
+  - template:
+      src: "{{ path_templates }}/dsm.opt.j2"
+      dest: "{{ dsm_opt_path }}"
+
+  - name: Enregistrer noeud TSM
+    command: dsmadmc -id={{ tsm_server_admin_username }} -password={{ tsm_server_pwd }} register node {{ ansible_hostname }} {{ tsm_node_pwd }} domain={{ tsm_policy_domain }}
+
+  - name: Update noeud TSM
+    command: dsmadmc -id={{ tsm_server_admin_username }} -password={{ tsm_server_pwd }} update node {{ ansible_hostname }} do={{ tsm_policy_domain }} clo={{ tsm_clopt }}
+
+  - name: Creer association sched noeud TSM
+    command: dsmadmc -id={{ tsm_server_admin_username }} -password={{ tsm_server_pwd }} define association {{ tsm_policy_domain }} {{ tsm_policy_name }} {{ ansible_hostname }}
+#    delegate_to: "{{ tsm_server_address }}"
+# ignore errors true en attendant
+# Configuration file /etc/systemd/system/dsmcad.service is marked executable. Please
+
+  - template:
+      src: "{{ path_files }}/dsmcad.service"
+      dest: "/etc/systemd/system/"
+      mode: 0600
+    ignore_errors: True
+  # [WARNING]: Consider using file module with mode rather than running chmod
+  - name: Systemd 1 - creer dsmcad service
+    command: chmod a+x /etc/systemd/system/dsmcad.service
+    ignore_errors: True
+  - name: Systemd 2 - recharger daemon
+    command: systemctl daemon-reload
+    ignore_errors: True
+  - name: Systemd 3 - demarrer dsmcad service
+    command: systemctl start dsmcad.service
+    ignore_errors: True
+  - name: Systemd 4 - activer dsmcad service
+    command: systemctl enable dsmcad.service
+    ignore_errors: True
+
+  - name: Renseigner mot de passe du noeud TSM
+    command: dsmadmc -id={{ tsm_server_admin_username }} -password={{ tsm_server_pwd }} update node {{ ansible_hostname }} {{ tsm_node_pwd }}
+    ignore_errors: True
+
+# FIXER LE NON REGISTER PWD SI LE NOEUD EST DEJA ENREGISTRE
+  - name: Lancer dsmc set password
+    command: dsmc set password {{ tsm_node_pwd }} {{ tsm_node_pwd }}
+    ignore_errors: True
+
+# CONFIGURER LE LANCEMENT AUTOMATIQUE DU DEMON
+# update-rc.d - chkconfig - systemctl
+
+  - mail:
+      host: smtp.yourdomain.com
+      port: 25
+      subject: "[ Ansible ][ IBM SPECTRUM ][ {{ ansible_hostname }} ] OK"
+      body: Client IBM Spectrum - noeud {{ ansible_hostname }}.
+      from: ansible@yourdomain.com (Hans Ibeul)
+      to: you@yourdomain.com
+      body: 'Le noeud {{ ansible_hostname }} est installé. Ci-dessous le journal dinstallation : \n log'
+      charset: utf-8

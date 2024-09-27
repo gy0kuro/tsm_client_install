@@ -1,0 +1,5 @@
+path_tsm_deb_files: /your/tsm/deb/files/path/
+path_tsm_rpm_files: /your/tsm/rpm/files/path/
+path_tsm_pushed_files: /tmp/tsm
+mail_tsm_dest: yourrecpt@yourdomain.com
+mail_tsm_cc: yourcc@yourdomain.com

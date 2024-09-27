@@ -1,0 +1,85 @@
+#!/usr/bin/env ansible-playbook
+#
+# Copyright (c) 2017 - Thomas GRATTON <gratton.thomas@gmail.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+---
+
+- hosts: tsm_uninstall
+  tasks:
+#
+  - name: Arret et desactivation du dsmcad
+    ansible.builtin.service:
+      name: dsmcad
+      state: stopped
+      enabled: no
+# 
+  - name: Suppression client tsm Ubuntu
+    command: dpkg -r "{{ item.item }}"
+    with_items:
+        - { item: "tivsm-ba" }
+        - { item: "tivsm-api64" }
+        - { item: "gskssl64" }
+        - { item: "gskcrypt64" }
+    ignore_errors: True
+    when: (ansible_distribution == "Ubuntu")
+#
+  - name: Suppression client tsm RedHat
+    command: rpm -e "{{ item.item }}"
+    with_items:
+        - { item: "gskssl64" }
+        - { item: "gskcrypt64" }
+        - { item: "TIVsm-BA" }
+        - { item: "TIVsm-API64" }
+    ignore_errors: True
+    when: (ansible_distribution == "RedHat")
+#
+  - name: Suppression opt
+    file: path=/opt/tivoli state=absent
+#
+  - name: Suppression postsched
+    file: path=/tsm/postsched.sh state=absent
+#
+  - name: Suppression presched
+    file: path=/tsm/presched.sh state=absent
+#
+  - name: Suppression path tsm
+    file: path=/tsm state=absent
+#
+  - name: Clean repos RedHat
+    yum_repository:
+      name: orion-tsm
+      state: absent
+    when: (ansible_distribution == "RedHat")
+#
+  - name: yum-clean-metadata RedHat
+    command: yum clean metadata
+    args:
+      warn: no
+    when: (ansible_distribution == "RedHat")
+#
+  - name: Suppression repos custom Ubuntu 1
+    ansible.builtin.file:
+      path: /etc/apt/sources.list.d/yourrepos.list
+      state: absent
+    ignore_errors: True
+    when: (ansible_distribution == "Ubuntu")
+#
+  - name: Suppression repos custom Ubuntu 2
+    ansible.builtin.file:
+      path: /etc/apt/sources.list.d/yourrepos.list.distUpgrade
+      state: absent
+    ignore_errors: True
+    when: (ansible_distribution == "Ubuntu")
+

@@ -1,0 +1,15 @@
+comm_method: TCPip
+tcp_port: 1500
+path_files: /path/to/your/files/
+path_templates: /path/to/your/templates
+dsm_sys_path: /opt/tivoli/tsm/client/ba/bin/dsm.sys
+dsm_opt_path: /opt/tivoli/tsm/client/ba/bin/dsm.opt
+inclexcl_path: /opt/tivoli/tsm/client/ba/bin/InclExcl
+tsm_server_name: yourserver.yourdomain.com
+tsm_server_address: yourserver.yourdomain.com
+tsm_server_pwd: yourtsmpwd
+tsm_server_admin_username: youradmin
+tsm_policy_name: inc_yourpolicy
+tsm_clopt: your_client_option_set
+tsm_policy_domain: your_policy_domain
+tsm_node_pwd: yournodepwd
